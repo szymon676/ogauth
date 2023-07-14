@@ -1,8 +1,12 @@
 package main
 
+import (
+	"errors"
+)
+
 type AuthServicer interface {
 	SignUp(req *SingUpReq) error
-	Login(req *SignInReq) error
+	SignIn(req *SignInReq) (string, error)
 }
 
 type AuthService struct {
@@ -23,6 +27,17 @@ func (as *AuthService) SignUp(req *SingUpReq) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
+}
+
+func (as *AuthService) SignIn(req *SignInReq) (string, error) {
+	mongouser, err := as.store.RetrieveUser(req.Email)
+	if err != nil {
+		return "", err
+	}
+	err = VerifyPassword(mongouser.Password, req.Password)
+	if err != nil {
+		return "", errors.New("incorrect password")
+	}
+	return "", nil
 }

@@ -17,6 +17,14 @@ func CreateUser(req *SingUpReq) *User {
 	}
 }
 
+func NormalizeEmail(email string) string {
+	return strings.TrimSpace(strings.ToLower(email))
+}
+
+func NormalizeUsername(username string) string {
+	return strings.TrimSpace(username)
+}
+
 func VerifyRegisterRequest(req *SingUpReq) error {
 	if len(req.Username) < 2 {
 		return errors.New("username must be longer than 2 characters")
@@ -30,12 +38,8 @@ func VerifyRegisterRequest(req *SingUpReq) error {
 	return nil
 }
 
-func NormalizeEmail(email string) string {
-	return strings.TrimSpace(strings.ToLower(email))
-}
-
-func NormalizeUsername(username string) string {
-	return strings.TrimSpace(username)
+func VerifyPassword(hashed, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
 }
 
 func EncryptPassword(password string) (string, error) {
