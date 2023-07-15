@@ -4,11 +4,18 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/gofiber/template/django/v3"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func CreateUser(req *SingUpReq) *User {
+func createEngine() *django.Engine {
+	engine := django.New("./views", ".html")
+	engine.Reload(true)
+	return engine
+}
+
+func CreateUser(req *SignupReq) *User {
 	return &User{
 		ID:       uuid.New().String(),
 		Username: NormalizeUsername(req.Username),
@@ -25,7 +32,7 @@ func NormalizeUsername(username string) string {
 	return strings.TrimSpace(username)
 }
 
-func VerifyRegisterRequest(req *SingUpReq) error {
+func VerifyRegisterRequest(req *SignupReq) error {
 	if len(req.Username) < 2 {
 		return errors.New("username must be longer than 2 characters")
 	}

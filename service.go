@@ -5,7 +5,7 @@ import (
 )
 
 type AuthServicer interface {
-	SignUp(req *SingUpReq) error
+	SignUp(req *SignupReq) error
 	SignIn(req *SignInReq) (string, error)
 }
 
@@ -13,7 +13,7 @@ type AuthService struct {
 	store Store
 }
 
-func (as *AuthService) SignUp(req *SingUpReq) error {
+func (as *AuthService) SignUp(req *SignupReq) error {
 	err := VerifyRegisterRequest(req)
 	if err != nil {
 		return err

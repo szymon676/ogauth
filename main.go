@@ -3,24 +3,20 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log"
-	"net/http"
-	"text/template"
+	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
-	home := func(w http.ResponseWriter, r *http.Request) {
-		tmpl := template.Must(template.ParseFiles("index.html"))
-		data := map[string]string{
-			"wow": "mega",
-		}
-		tmpl.Execute(w, data)
-	}
+	app := fiber.New(fiber.Config{
+		PassLocalsToViews: true,
+		Views:             createEngine(),
+	})
 
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI("mongodb://localhost:27017"))
 	if err != nil {
@@ -31,40 +27,51 @@ func main() {
 	service := &AuthService{store: store}
 	as := &apiServer{s: service}
 
-	http.HandleFunc("/", home)
-	http.HandleFunc("/signup", makeHTTPHandleFunc(as.handleSignUp))
-	http.HandleFunc("/signin", makeHTTPHandleFunc(as.handleSignIn))
+	app.Get("/", as.home)
+	app.Get("/signup", loggingMiddleware(as.handleSignUp))
+	app.Post("/signup", loggingMiddleware(as.handleSignUp))
+	app.Post("/signin", loggingMiddleware(as.handleSignIn))
 
-	log.Fatal(http.ListenAndServe(":3000", nil))
+	log.Fatal(app.Listen(":3000"))
 }
 
 type apiServer struct {
 	s AuthServicer
 }
 
-func (as *apiServer) handleSignUp(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "POST" {
-		return errors.New("method not allowed")
+func (as *apiServer) home(c *fiber.Ctx) error {
+	return c.Render("index", nil)
+}
+
+func (as *apiServer) handleSignUp(c *fiber.Ctx) error {
+	if c.Method() != fiber.MethodPost {
+		return c.Render("signupform", nil)
 	}
 
-	req := &SingUpReq{}
-	json.NewDecoder(r.Body).Decode(req)
+	username := c.FormValue("username")
+	email := c.FormValue("email")
+	password := c.FormValue("password")
 
-	err := as.s.SignUp(req)
-	if err != nil {
+	req := &SignupReq{
+		Username: username,
+		Email:    email,
+		Password: password,
+	}
+
+	if err := as.s.SignUp(req); err != nil {
 		return err
 	}
 
-	return WriteResponse(w, 200, "succesfully register user")
+	return c.Render("index", nil)
 }
 
-func (as *apiServer) handleSignIn(w http.ResponseWriter, r *http.Request) error {
-	if r.Method != "POST" {
-		return errors.New("method not allowed")
-	}
+func (as *apiServer) handleSignIn(c *fiber.Ctx) error {
 
 	req := &SignInReq{}
-	json.NewDecoder(r.Body).Decode(&req)
+	if err := json.Unmarshal(c.Body(), req); err != nil {
+		return err
+	}
+
 	username, err := as.s.SignIn(req)
 	if err != nil {
 		return err
@@ -74,19 +81,14 @@ func (as *apiServer) handleSignIn(w http.ResponseWriter, r *http.Request) error 
 	if err != nil {
 		return err
 	}
-	return WriteResponse(w, 200, token)
-}
 
-func WriteResponse(w http.ResponseWriter, code int, data ...any) error {
-	w.WriteHeader(code)
-	w.Header().Add("Content-Type", "application/json")
-
-	return json.NewEncoder(w).Encode(&data)
+	c.Status(200)
+	return c.JSON(token)
 }
 
 func createJWT(username string) (string, error) {
 	claims := &jwt.MapClaims{
-		"expiresAt": 15000,
+		"expiresAt": time.Now().Add(15 * time.Minute).Unix(),
 		"username":  username,
 	}
 
@@ -96,12 +98,9 @@ func createJWT(username string) (string, error) {
 	return token.SignedString([]byte(secret))
 }
 
-type apiFunc func(http.ResponseWriter, *http.Request) error
-
-func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if err := f(w, r); err != nil {
-			WriteResponse(w, http.StatusBadRequest, "err: "+err.Error())
-		}
+func loggingMiddleware(next fiber.Handler) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		log.Println("req on path", c.Path(), "method", c.Method())
+		return next(c)
 	}
 }
