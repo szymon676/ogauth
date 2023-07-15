@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ogauth</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2" integrity="sha384-L6OqL9pRWyyFU3+/bjdSri+iIphTN/bvYyM37tICVyOJkWZLpP2vGn6VUEXgzg6h" crossorigin="anonymous"></script>
+
+</head>
+<body>
+    <div>
+        <form hx-post="/signup">
+            <label for="username">Username:</label><br>
+            <input type="username" id="usernae" name="username"> <br>
+            <label for="email">Email:</label><br>
+            <input type="text" id="email" name="email"> <br>
+            <label for="password">Password:</label> <br>
+            <input type="password" id="password" name="password"> <br>
+            <input type="submit" value="Submit">
+        </form>
+    </div>
+</body>
+</html>

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 	"time"
 
@@ -25,54 +24,52 @@ func main() {
 
 	store := &MongoStore{db: client.Database("users"), coll: "users"}
 	service := &AuthService{store: store}
-	as := &apiServer{s: service}
+	as := &apiServer{s: service, signed: false}
 
 	app.Get("/", as.home)
-	app.Get("/signup", loggingMiddleware(as.handleSignUp))
+	app.Get("/signup", loggingMiddleware(as.handleSignUpPage))
+	app.Get("/signin", loggingMiddleware(as.handleSignInPage))
 	app.Post("/signup", loggingMiddleware(as.handleSignUp))
 	app.Post("/signin", loggingMiddleware(as.handleSignIn))
+	app.Post("/signout", loggingMiddleware(as.handleSignOut))
 
 	log.Fatal(app.Listen(":3000"))
 }
 
 type apiServer struct {
-	s AuthServicer
+	s      AuthServicer
+	signed bool
+	token  string
 }
 
 func (as *apiServer) home(c *fiber.Ctx) error {
-	return c.Render("index", nil)
+	return c.Render("index", fiber.Map{"logged": as.signed})
+}
+
+func (as *apiServer) handleSignUpPage(c *fiber.Ctx) error {
+	return c.Render("signupform", nil)
+}
+
+func (as *apiServer) handleSignInPage(c *fiber.Ctx) error {
+	return c.Render("signinform", nil)
 }
 
 func (as *apiServer) handleSignUp(c *fiber.Ctx) error {
-	if c.Method() != fiber.MethodPost {
-		return c.Render("signupform", nil)
-	}
+	var req SignupReq
+	c.BodyParser(&req)
 
-	username := c.FormValue("username")
-	email := c.FormValue("email")
-	password := c.FormValue("password")
-
-	req := &SignupReq{
-		Username: username,
-		Email:    email,
-		Password: password,
-	}
-
-	if err := as.s.SignUp(req); err != nil {
+	if err := as.s.SignUp(&req); err != nil {
 		return err
 	}
 
-	return c.Render("index", nil)
+	return c.Redirect("/signin")
 }
 
 func (as *apiServer) handleSignIn(c *fiber.Ctx) error {
+	var req SignInReq
+	c.BodyParser(&req)
 
-	req := &SignInReq{}
-	if err := json.Unmarshal(c.Body(), req); err != nil {
-		return err
-	}
-
-	username, err := as.s.SignIn(req)
+	username, err := as.s.SignIn(&req)
 	if err != nil {
 		return err
 	}
@@ -82,8 +79,16 @@ func (as *apiServer) handleSignIn(c *fiber.Ctx) error {
 		return err
 	}
 
-	c.Status(200)
-	return c.JSON(token)
+	as.token = token
+	as.signed = true
+
+	return c.SendString("signed in")
+}
+
+func (as *apiServer) handleSignOut(c *fiber.Ctx) error {
+	as.signed = false
+	as.token = ""
+	return c.SendString("signed out")
 }
 
 func createJWT(username string) (string, error) {

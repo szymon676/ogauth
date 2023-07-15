@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ogauth</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2" integrity="sha384-L6OqL9pRWyyFU3+/bjdSri+iIphTN/bvYyM37tICVyOJkWZLpP2vGn6VUEXgzg6h" crossorigin="anonymous"></script>
+</head>
+<body>
+    {% if not token %} 
+    <h1>You are not signed in ;c</h1>
+    <h2>Click here to sign in: <a href="signin">signin</a></h2>
+    {% endif %} 
+
+    {% if token %}
+    <h1>You are signed in <3 </h1> 
+    <h1>token:   {{ token }} </h1>
+    <button hx-post="/signout" hx-target="h1">sign out</button>
+    {% endif %} 
+
+</body>
+</html>
